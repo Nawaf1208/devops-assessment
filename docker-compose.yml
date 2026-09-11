@@ -1,4 +1,20 @@
 services:
+
+  traefik:
+    image: traefik:v3.6
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8081:8080"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    networks:
+      - app-network 
+
   postgres:
     image: postgres:16-alpine
     environment:
@@ -47,9 +63,7 @@ services:
       S3_ENDPOINT_URL: http://localstack:4566
       S3_PUBLIC_ENDPOINT_URL: http://localhost:4566
       S3_BUCKET_NAME: ${S3_BUCKET_NAME}
-      CORS_ORIGINS: http://localhost:3000
-    ports:
-      - "8000:8000"
+      CORS_ORIGINS: http://app.debyez.localhost 
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,19 +77,22 @@ services:
     restart: unless-stopped
     networks:
       - app-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`api.debyez.localhost`)"
+      - "traefik.http.routers.backend.entrypoints=web"
+      - "traefik.http.services.backend.loadbalancer.server.port=8000"
 
   frontend:
     build:
       context: ./frontend
       args:
-        VITE_API_BASE_URL: http://localhost:8000/api
-    ports:
-      - "3000:8080"
+        VITE_API_BASE_URL: http://api.debyez.localhost/api
     depends_on:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/"]
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8080/"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -83,6 +100,11 @@ services:
     restart: unless-stopped
     networks:
       - app-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`app.debyez.localhost`)"
+      - "traefik.http.routers.frontend.entrypoints=web"
+      - "traefik.http.services.frontend.loadbalancer.server.port=8080"
 
 volumes:
   postgres_data:
