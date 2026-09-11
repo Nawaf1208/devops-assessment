@@ -125,4 +125,3 @@ app.include_router(files.router, prefix="/api")
 @app.get("/", tags=["Root"])
 def root():
     return {"service": settings.APP_NAME, "docs": "/docs"}
-import this_module_does_not_exist
