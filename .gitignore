@@ -5,3 +5,7 @@
 
 # --- Local infra (populated by the attendee's DevOps task) --------------
 *.log
+
+# Rollback
+CURRENT_VERSION
+PREVIOUS_VERSION
