@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16
+    image: postgres:16-alpine
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
@@ -12,6 +12,22 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  localstack:
+    image: localstack/localstack:4.4.0
+    environment:
+      SERVICES: s3
+    ports:
+      - "4566:4566"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     restart: unless-stopped
     networks:
       - app-network
@@ -28,16 +44,16 @@ services:
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       AWS_REGION: ${AWS_REGION}
-      S3_ENDPOINT_URL: http://host.docker.internal:4566
-      S3_PUBLIC_ENDPOINT_URL: http://host.docker.internal:4566
+      S3_ENDPOINT_URL: http://localstack:4566
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:4566
       S3_BUCKET_NAME: ${S3_BUCKET_NAME}
       CORS_ORIGINS: http://localhost:3000
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     ports:
       - "8000:8000"
     depends_on:
       postgres:
+        condition: service_healthy
+      localstack:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/health/full').getcode() == 200 else 1)"]
@@ -70,7 +86,7 @@ services:
 
 volumes:
   postgres_data:
-    
+
 networks:
   app-network:
     driver: bridge
